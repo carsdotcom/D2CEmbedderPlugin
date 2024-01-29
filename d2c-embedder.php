@@ -4,21 +4,28 @@
  *
  * @package       d2c-embedder
  * @author        D2C Media
- * @version       1.0.0
  *
  * @wordpress-plugin
  * Plugin Name:   D2C Embedder 
  * Plugin URI:    https://www.d2cmedia.ca
  * Description:   D2C Media SRP/VDP Embedder plugin. 
- * Version:       1.0.0
+ * Version:       1.0.1
  * Author:        D2C Media
  * Author URI:    https://www.d2cmedia.ca
  */
-// Exit if accessed directly.
-if ( ! defined( 'ABSPATH' ) ) exit;
+// Prevent direct access to this file.
+if ( ! defined( 'ABSPATH' ) ) {
+	header( 'HTTP/1.0 403 Forbidden' );
+	echo 'This file should not be accessed directly!';
+	exit; // Exit if accessed directly.
+}
 
-
-
+/**
+ * D2C_Embedder Class
+ * 
+ * Handles the functionality to fetch data from the D2C API.
+ * This class is responsible for creating pages based on URL parameters provided.
+ */
 class D2C_Embedder {
     private $pagetitle;
     private $metas;
@@ -28,9 +35,11 @@ class D2C_Embedder {
     private $url="https://oem-gmc-demo.d2cmedia.ca";
     private $defaultpage="/new/new.html";
     private $data_fetched = false;
-    private $add_tags = false;
-    private $change_title = false;
+    
+    // The plugin works only on these pages 
     private $pageslug = array('d2c-vdp-test','vehicules-neufs','new','neufs');
+    //TODO may move this to settings page 
+
     private $path;
     private $ajaxsetupcode = "
 $.ajaxSetup({
@@ -44,33 +53,39 @@ $.ajaxSetup({
 setTimeout(() => {
     docReady();
 }, 1000);";
+
+    /**
+     * Constructor for the D2C_Embedder class.
+     * All actions, filters and short_code are registered 
+     */
     public function __construct() {
         add_action('wp', array($this, 'fetch_data'));
 
-        //add_shortcode( 'd2cembedder', array( $this, 'd2c_embedder_shortcode' ) );
         add_filter('body_class',array($this,'add_custom_body_classes'));
         add_action('wp_head', array($this,'add_custom_meta_tags'));
         add_action('wp_head', array($this,'add_custom_js_inline_tags'));
         add_action('wp_footer', array($this,'add_custom_js_rl_tags'));
-        //add_filter('wp_title', array($this, 'modify_title'), 10, 2);
         add_filter('document_title_parts', array($this, 'modify_page_title'), 10);
         add_shortcode('d2cembedder', array($this, 'handle_shortcode'));
 }
 
-    public function handle_shortcode() {
-        $this->fetch_data();
-        if($this->data_fetched){
-            return $this->html;
 
-        }else{
-            return '<p>Error fetching data.</p>';
-        }
-    }
+    /**
+     * Fetches data from a specified API endpoint based on the current page and language.
+     *
+     * This method checks if the current page matches the expected page slug (`$this->pageslug`)
+     * and if the data has not already been fetched. 
+     * It prepares and sends a POST request to the API and processes the response.
+     *
+     * If the response is valid, it decodes the data (assumed to be base64 encoded) and sets
+     * various properties of the class like `metas`, `js_inline`, `js_rl`, and `html`.
+     * It then marks that the data has been fetched successfully.
+     */
     public function fetch_data() {
-        if (!is_page($this->pageslug)) return; // TODO may change this login
+        if (!is_page($this->pageslug)) return; // should match the expected page slug
        
-        if($this->data_fetched) return;//already fetched data 
-        $current_language = pll_current_language();
+        if($this->data_fetched) return; //already fetched data 
+        $current_language = $this->get_current_page_language();
         $processUrl = $this->url . '/embeder/process';
         if ($current_language == 'fr'){
             $this->defaultpage = '/neufs/nouveau.html';
@@ -80,12 +95,8 @@ setTimeout(() => {
 
         $this->path = isset($_GET['path']) ? $_GET['path'] : $this->defaultpage;
     
-        // Prepare POST fields
-        /*$postFields = array(
-            'parentUrl' => 'https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
-            'path' => $path
-        );*/
         $postFields = $this->processUrl('https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
+
         // Define the arguments for the POST request
         $args = array(
             'body'      => $postFields,
@@ -94,6 +105,7 @@ setTimeout(() => {
             ),
             'timeout'   => 45, // Timeout for the request
         );
+
         //echo '<pre>';
         //print_r($args);
         //echo '</pre>';
@@ -117,26 +129,59 @@ setTimeout(() => {
     
         // Decode base64 encoded data and set properties
         $this->metas = base64_decode($responseData['metas']);
-        echo '<pre>hello---';
-        print_r($responseData['metas']);
-        echo ' -----</pre>';
-
-        $this->split_title_metas(base64_decode($responseData['title']));
+        $this->get_title_value(base64_decode($responseData['title']));
         $this->js_inline = base64_decode($responseData['js_inline']);
         $this->js_rl = base64_decode($responseData['js_rl']);
-        //$this->js_rl = str_replace('addDealerInsideScript();', '//addDealerInsideScript();', $this->js_rl);
         $this->html = base64_decode($responseData['html']);
-        $this->add_tags = true;
-        $this->change_title = true;    
         $this->data_fetched = true;
         return true;
     }
-    
-    private function split_title_metas($html){
+
+    /**
+     * get the current page language
+     * @return string en or fr
+     */
+    private function get_current_page_language(){
+        $current_language = 'en';
+        if (function_exists('pll_current_language')) {
+            // Polylang is active
+            $current_language = pll_current_language();
+        } elseif (defined('ICL_LANGUAGE_CODE')) {
+            // WPML is active
+            $current_language = ICL_LANGUAGE_CODE;
+        } else {
+            // Fallback if neither Polylang nor WPML is active
+            // default WordPress locale or set a default language
+            $current_language = substr(get_locale(), 0, 2);
+        }
+        return $current_language;
+        
+    }
+
+    /**
+     * sets the pagetitle
+    */
+    private function get_title_value($html){
         if (preg_match('/<title>(.*?)<\/title>/', $html, $matches)) {
             $this->pagetitle = $matches[1];  // Capture the content inside the title tag
         }
     }
+
+    /**
+     * Processes a given URL to extract and manipulate its components.
+     *
+     * This method parses the provided URL and extracts its components using `parse_url`.
+     * It specifically looks for and handles the 'path' query parameter. If the 'path'
+     * parameter exists, it updates the class property `$this->path` and removes 'path'
+     * from the query parameters of the URL.
+     *
+     * After processing, the method rebuilds the query string without the 'path'
+     * parameter and reconstructs the URL accordingly. The final output is an array
+     * containing the modified URL ('parentUrl') and the extracted 'path' value.
+     *
+     * @param string $url The URL to be processed.
+     * @return array An associative array with 'parentUrl' and 'path' as keys.
+     */   
     private function processUrl($url) {
         // Parse the URL to get its components
         $urlComponents = parse_url($url);
@@ -167,6 +212,9 @@ setTimeout(() => {
     }
     
     
+    /**
+     * adds the custom body classes
+    */
     public function add_custom_body_classes($classes) {
         if (is_page($this->pageslug)){
             $classes[] = 'isPageFullWidthEnabled';
@@ -176,27 +224,38 @@ setTimeout(() => {
         return $classes;
     }
     
+    /**
+     * adds the custom meta tags
+    */
     public function add_custom_meta_tags() {
         if (is_page($this->pageslug) && $this->data_fetched){
             echo $this->metas;
         }
     }
 
+    /**
+     * adds the custom inline tags
+    */
     public function add_custom_js_inline_tags() {
         $this->fetch_data();
         if (is_page($this->pageslug) && $this->data_fetched){
             echo '<script id="d2c_js_inline" type="text/javascript">' . $this->js_inline . '</script>';
-            //echo '<script id="d2c_js_inline" type="text/javascript"></script>';
         }
     }
 
+    /**
+     * adds the custom JS tags
+    */
     public function add_custom_js_rl_tags() {
         $this->fetch_data();
         if (is_page($this->pageslug) && $this->data_fetched){
             echo '<script id="d2c_js_rl" type="text/javascript">' . $this->js_rl . $this->ajaxsetupcode . '</script>';
-            //echo '<script id="d2c_js_rl" type="text/javascript"></script>';
         }
     }
+
+    /**
+     * Modifies the page title based on data fetched by the `fetch_data` method.
+    */
     public function modify_page_title($title){
         $this->fetch_data();
         if (is_page($this->pageslug) && $this->data_fetched){
@@ -206,6 +265,27 @@ setTimeout(() => {
         return $title;
     }
 
+    /**
+     * Handles the shortcode functionality for the D2C_Embedder class.
+     *
+     * This method is responsible for fetching data using the `fetch_data` method.
+     * After attempting to fetch data, it checks if the data was successfully retrieved.
+     * If the data is successfully fetched, it returns the formatted HTML content.
+     * Otherwise, it returns an error message in HTML format.
+     */
+    public function handle_shortcode() {
+        $this->fetch_data();
+        if($this->data_fetched){
+            return $this->html;
+
+        }else{
+            return '<p>Error fetching data.</p>';
+        }
+    }
+
 }
 
+// Create an instance of the D2C_Embedder class.
+// This object will be used to access the functionality provided by the D2C_Embedder plugin,
+// such as fetching data from the D2C API, processing URLs, and handling shortcodes.
 $d2c_embedder_plugin = new D2C_Embedder();
