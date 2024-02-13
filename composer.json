@@ -1,0 +1,9 @@
+{
+	"name":"wp-plugin/d2cembedder-plugin",
+	"description": "Handles the functionality to fetch data from the D2C API.",
+	"type":"wordpress-plugin",
+	"version": "1.0.1",
+	"require": {
+		"composer/installers": "~1.0"
+	}
+}
