@@ -37,7 +37,7 @@ class D2C_Embedder {
     private $data_fetched = false;
     
     // The plugin works only on these pages 
-    private $pageslug = array('d2c-vdp-test','vehicules-neufs','new','neufs');
+    private $pageslug = array('d2c-showroom-test','d2c-vehicules-neufs','d2c-new','d2c-neufs');
     //TODO may move this to settings page 
 
     private $path;
