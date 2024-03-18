@@ -9,7 +9,7 @@
  * Plugin Name:   D2C Embedder 
  * Plugin URI:    https://www.d2cmedia.ca
  * Description:   D2C Media SRP/VDP Embedder plugin. 
- * Version:       1.0.1
+ * Version:       1.0.2
  * Author:        D2C Media
  * Author URI:    https://www.d2cmedia.ca
  */
@@ -37,7 +37,7 @@ class D2C_Embedder {
     private $data_fetched = false;
     
     // The plugin works only on these pages 
-    private $pageslug = array('d2c-showroom-test','d2c-vehicules-neufs','d2c-new','d2c-neufs');
+    private $pageslug = array('d2c-showroom-test','d2c-showroom-test-fr','d2c-vdp-test','d2c-vdp-test-fr');
     //TODO may move this to settings page 
 
     private $path;
@@ -63,7 +63,6 @@ setTimeout(() => {
 
         add_filter('body_class',array($this,'add_custom_body_classes'));
         add_action('wp_head', array($this,'add_custom_meta_tags'));
-        add_action('wp_head', array($this,'add_custom_js_inline_tags'));
         add_action('wp_footer', array($this,'add_custom_js_rl_tags'));
         add_filter('document_title_parts', array($this, 'modify_page_title'), 10);
         add_shortcode('d2cembedder', array($this, 'handle_shortcode'));
@@ -85,7 +84,8 @@ setTimeout(() => {
         if (!is_page($this->pageslug)) return; // should match the expected page slug
        
         if($this->data_fetched) return; //already fetched data 
-        $current_language = $this->get_current_page_language();
+        
+        $current_language = $this->get_page_language();
         $processUrl = $this->url . '/embeder/process';
         if ($current_language == 'fr'){
             $this->defaultpage = '/neufs/nouveau.html';
@@ -95,8 +95,8 @@ setTimeout(() => {
 
         $this->path = isset($_GET['path']) ? $_GET['path'] : $this->defaultpage;
     
-        $postFields = $this->processUrl('https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
-
+        //$postFields = $this->processUrl('https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
+        $postFields = $this->processUrl('http://' . $_SERVER['HTTP_HOST'] . ':9081' .$_SERVER['REQUEST_URI']);
         // Define the arguments for the POST request
         $args = array(
             'body'      => $postFields,
@@ -107,7 +107,8 @@ setTimeout(() => {
         );
 
         //echo '<pre>';
-        //print_r($args);
+	    //print_r($args);
+	    //print_r($_SERVER);
         //echo '</pre>';
     
         // Execute the POST request
@@ -138,21 +139,36 @@ setTimeout(() => {
     }
 
     /**
-     * get the current page language
+     * get the selected page language
      * @return string en or fr
      */
-    private function get_current_page_language(){
+    private function get_page_language(){
         $current_language = 'en';
-        if (function_exists('pll_current_language')) {
-            // Polylang is active
-            $current_language = pll_current_language();
-        } elseif (defined('ICL_LANGUAGE_CODE')) {
-            // WPML is active
-            $current_language = ICL_LANGUAGE_CODE;
-        } else {
-            // Fallback if neither Polylang nor WPML is active
-            // default WordPress locale or set a default language
-            $current_language = substr(get_locale(), 0, 2);
+        if (is_singular()) {
+            global $post; // Get the current post data
+            $slug = $post->post_name; // Get the slug of the current post
+    
+            // Check if the slug ends with '-fr'
+            $slug_ends_with_fr = substr($slug, -3) === '-fr';
+    
+            // Get the current URL
+            $current_url = home_url(add_query_arg(null, null));
+
+            // Parse the URL to get query parameters
+            $query_params = [];
+            parse_str(parse_url($current_url, PHP_URL_QUERY), $query_params);
+            
+            // Check if the 'path' query parameter exists and contains '/neufs/'
+            $path_contains_neufs = false;
+            if (isset($query_params['path']) && strpos($query_params['path'], '/neufs/') !== false) {
+                $path_contains_neufs = true;
+            }
+     
+            // Check if the URL contains '/fr/'
+            $url_contains_fr = strpos($current_url, '/fr/') !== false;
+    
+            // page language is fr if either the slug ends with '-fr' or the URL contains '/fr/'
+            $current_language =  ($slug_ends_with_fr || $url_contains_fr || $path_contains_neufs) ? 'fr' :'en';
         }
         return $current_language;
         
@@ -184,6 +200,7 @@ setTimeout(() => {
      */   
     private function processUrl($url) {
         // Parse the URL to get its components
+        //var_dump($url);
         $urlComponents = parse_url($url);
     
         // Parse the query string into an array
@@ -202,15 +219,34 @@ setTimeout(() => {
         // Rebuild the query string without 'path'
         $queryString = http_build_query($queryParams);
     
-        // Rebuild the URL without 'path'
-        $parentUrl = $urlComponents['scheme'] . '://' . $urlComponents['host'] . $urlComponents['path'];
+	// Rebuild the URL without 'path'
+	if ($this->isLocalUrl($url)){
+		$parentUrl = '//' . $urlComponents['host'] .  $urlComponents['path'];
+	}else{
+		$parentUrl = $urlComponents['scheme'] . '://' . $urlComponents['host'] . $urlComponents['path'];
+	}
         if (!empty($queryString)) {
             $parentUrl .= '?' . $queryString;
         }
     
         return array('parentUrl' => $parentUrl, 'path' => $this->path);
     }
-    
+
+    private function isLocalUrl($url) {
+	// Parse the URL to get its components
+        $urlComponents = parse_url($url);
+
+	//Check if the host component of the URL is 'localhost' or '127.0.0.1'
+	$isLocalHost = isset($urlComponents['host']) &&
+		    ($urlComponents['host'] === 'localhost' || $urlComponents['host'] === '127.0.0.1');
+	    
+	// Check if the port component of the URL is '9081'
+	$isLocalPort = isset($urlComponents['port']) && $urlComponents['port'] === 9081;
+	    
+	// Return true if either condition is met
+	return $isLocalHost || $isLocalPort;
+    }
+	
     
     /**
      * adds the custom body classes
@@ -234,21 +270,12 @@ setTimeout(() => {
     }
 
     /**
-     * adds the custom inline tags
-    */
-    public function add_custom_js_inline_tags() {
-        $this->fetch_data();
-        if (is_page($this->pageslug) && $this->data_fetched){
-            echo '<script id="d2c_js_inline" type="text/javascript">' . $this->js_inline . '</script>';
-        }
-    }
-
-    /**
      * adds the custom JS tags
     */
     public function add_custom_js_rl_tags() {
         $this->fetch_data();
         if (is_page($this->pageslug) && $this->data_fetched){
+            echo '<script id="d2c_js_inline" type="text/javascript">' . $this->js_inline . '</script>';
             echo '<script id="d2c_js_rl" type="text/javascript">' . $this->js_rl . $this->ajaxsetupcode . '</script>';
         }
     }
