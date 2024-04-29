@@ -9,7 +9,7 @@
  * Plugin Name:   D2C Embedder 
  * Plugin URI:    https://www.d2cmedia.ca
  * Description:   D2C Media SRP/VDP Embedder plugin. 
- * Version:       1.0.2
+ * Version:       1.0.3
  * Author:        D2C Media
  * Author URI:    https://www.d2cmedia.ca
  */
@@ -32,16 +32,25 @@ class D2C_Embedder {
     private $js_inline;
     private $js_rl;
     private $html;
+    private $menu_new;
     private $url="https://oem-gmc-demo.d2cmedia.ca";
     private $defaultpage="/new/new.html";
     private $data_fetched = false;
+    private $is_mobile = false;
     
     // The plugin works only on these pages 
     private $pageslug = array('d2c-showroom-test','d2c-showroom-test-fr','d2c-vdp-test','d2c-vdp-test-fr');
     //TODO may move this to settings page 
 
     private $path;
+/*    
     private $ajaxsetupcode = "
+
+$.ajaxPrefilter(function( options, originalOptions, jqXHR ) {
+        if (options.url.match(/^\/\w/i) != null){
+            options.url = 'https://oem-gmc-demo.d2cmedia.ca' + options.url;
+        }
+    });
 $.ajaxSetup({
     beforeSend: function(jqXHR, settings) {
         console.log('AJAX beforeSend OPTINS: ',jqXHR,settings);
@@ -50,9 +59,540 @@ $.ajaxSetup({
         }
     }
 });
+
 setTimeout(() => {
+
     docReady();
 }, 1000);";
+*/
+
+private $otherPagecode = <<<'OTHERPAGE'
+    function addCssStyles() {
+
+        var styles = `
+
+            #d2c_bodyContent.d2c-embedded-content{
+                font-size: 0.875rem;
+                font-family: var(--font-text);
+                font-weight: var(--font-text-weight, 400);
+            }
+
+            #d2c_bodyContent.d2c-embedded-content-mobile{
+                font-size: 1rem;
+                font-family: var(--font-text);
+                font-weight: var(--font-text-weight, 400);
+            }
+
+            #d2c_bodyContent #filterMainBox label {
+                margin-inline-start: 0.3rem;
+            }
+
+            #d2c_bodyContent a {
+                text-decoration: none;
+            }
+
+            #d2c_bodyContent .white-txt:is(.toggle-icon,.icon-button){
+                height: 1.4rem;
+                width: 1.4rem;
+            }
+            #d2c_bodyContent .glossy-curved-black .slide-arrows a{
+                background-image:url(${baseDomain}/images/arrows.png);
+            }
+
+            #d2c_bodyContent .owl-controls .owl-buttons div {
+                top: 40% !important;
+                position: absolute !important;
+                width: 37px !important;
+                height: 38px !important;
+            }
+
+            #d2c_bodyContent .owl-controls .owl-buttons .owl-prev {
+                background: url(${baseDomain}/css/tango/left.png) !important;
+            }
+
+            #d2c_bodyContent .owl-controls .owl-buttons .owl-next {
+                background: url(${baseDomain}/css/tango/right.png) !important;
+            }
+
+            #header #header-bottom .navbar #menu-top-menu>li>a {line-height:unset !important;}
+            .up_menu ul.nav > li > a {height:unset !important;min-height:18px;}
+            .up_menu ul.nav > li#MainMenu_NEW:hover > ul.sub {min-width:20rem !important;}
+            .up_menu ul.nav {background-color:transparent !important;}
+
+            .d2c-embedded-content #TradeInBarPopupContainer {
+                min-width: 700px;
+                min-height: 700px;
+                top: 3rem !important;
+            }
+
+            #d2c_bodyContent :is(h1.default span.icon, svg.fa-svg, .tradeInBarMobileButton) {
+                box-sizing: content-box;
+            }
+
+            #d2c_bodyContent .old-details td i.fa-chevron-right {
+                box-sizing:content-box;
+            }
+
+            @media only screen and (min-width: 1301px){
+                #d2c_bodyContent li.carBoxWrapper {
+                    width: calc(33.33333333333333% - 15px);
+                }
+            }
+        `;
+
+        var styleTag = document.createElement("style");
+        styleTag.type = "text/css";
+        styleTag.innerHTML = styles;
+        document.head.appendChild(styleTag);
+    }
+    function handleAdjsutments(){
+
+
+        if(window.gUsedSrpAppz || false){
+            gUsedSrpAppz.filterInterface.getFilterController().init();
+        }
+
+        document.getElementById('d2c_bodyContent').hidden = false;
+
+        let mainTag = document.getElementsByTagName('main')[0] || false;
+
+        if(!mainTag) return;
+
+        mainTag.parentNode.classList.toggle('col-sm-8',false);
+        mainTag.parentNode.classList.toggle('col-sm-12',true);
+
+    }
+    function addCssFile(url) {
+
+        var link = document.createElement("link");
+
+        link.rel = "stylesheet";
+        link.type = "text/css";
+        link.href = `${baseDomain}${url}`;
+        document.head.appendChild(link);
+    }
+    function handleMenu(){
+
+        let menu_html = document.getElementById('d2c_menuNew').children[0];
+        menu_html.querySelector('li[data-id="NEW_BUILDPRICE"]').remove();
+        //let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
+        let menuNewNode = document.querySelector('#menu-main-menu-1 .newVehicles');
+        menuNewNode.closest('.navbar').classList.add('up_menu');
+        menuNewNode.id = 'MainMenu_NEW';
+        menuNewNode.appendChild(menu_html);
+        menuNewNode.querySelectorAll('img[data-src]').forEach(img => img.src = img.dataset.src);
+
+    }
+    function handleLinks(){
+
+        const linkMap = {
+            'new-vehicles': '/new/new.html',
+            'used-vehicles': '/used/search.html',
+            'vehicules-neufs': '/neufs/nouveau.html',
+            'vehicules-doccasion': '/occasion/recherche.html',
+            //'/new-vehicles/chevrolet/': '/d2c-showroom-test/?path=/new/Chevrolet.html',
+            //'/new-vehicles/buick/': '/d2c-showroom-test/?path=/new/Buick.html',
+            //'/new-vehicles/gmc/': '/d2c-showroom-test/?path=/new/GMC.html',
+            //'/new-vehicles/cadillac/': '/d2c-showroom-test/?path=/new/Cadillac.html',
+            //'/new-vehicles/used/': '/d2c-showroom-test/?path=/new/used.html',
+            //'/new-vehicles/finance/': '/d2c-showroom-test/?path=/new/finance.html',
+            //'/new-vehicles/service/': '/d2c-showroom-test/?path=/new/service.html',
+            //'/new-vehicles/contact/': '/d2c-showroom-test/?path=/new/contact.html',
+            //'/new-vehicles/current-offers/': '/d2c-showroom-test/?path=/new/current-offers.html',
+        };
+
+
+        for(key in linkMap){
+            let link = document.querySelectorAll(`a[href$="/${key}/"]`);
+            link.forEach(a => {a.href = `/d2c-vdp-test/?path=${linkMap[key]}`});
+            console.log('key=',key);
+        }
+
+    }
+    addCssStyles();
+    addCssFile('/css/menu-base.css');
+    addCssFile("/css/menu7.css");
+    //handleAdjsutments();
+    handleMenu();
+    handleLinks();
+OTHERPAGE;
+
+private $ajaxsetupcode = <<<'AJAXCODE'
+function setBodyClass() {
+
+    let bodyClass = document.getElementById('d2cDataStore').dataset.bodyclass.trim().split(' ');
+
+    bodyClass.forEach(cls => document.body.classList.add(cls));
+
+}
+
+function handleAdjsutments(){
+
+
+    if(window.gUsedSrpAppz || false){
+        gUsedSrpAppz.filterInterface.getFilterController().init();
+    }
+
+    document.getElementById('d2c_bodyContent').hidden = false;
+
+    let mainTag = document.getElementsByTagName('main')[0] || false;
+
+    if(!mainTag) return;
+
+    mainTag.parentNode.classList.toggle('col-sm-8',false);
+    mainTag.parentNode.classList.toggle('col-sm-12',true);
+
+}
+function handleMenu(){
+
+    let menu_html = document.getElementById('d2c_menuNew').children[0] || false;
+
+    if(!menu_html) return;
+
+    menu_html.querySelector('li[data-id="NEW_BUILDPRICE"]').remove();
+    //let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
+    let menuNewNode = document.querySelector('#menu-main-menu-1 .newVehicles');
+
+    menuNewNode.closest('.navbar').classList.add('up_menu');
+    menuNewNode.id = 'MainMenu_NEW';
+    menuNewNode.appendChild(menu_html);
+
+    menuNewNode.querySelectorAll('img[data-src]').forEach(img => img.src = img.dataset.src);
+
+
+}
+
+function handleLinks(){
+
+    const linkMap = {
+        'new-vehicles': '/new/new.html',
+        'used-vehicles': '/used/search.html',
+        'vehicules-neufs': '/neufs/nouveau.html',
+        'vehicules-doccasion': '/occasion/recherche.html',
+        //'/new-vehicles/chevrolet/': '/d2c-showroom-test/?path=/new/Chevrolet.html',
+        //'/new-vehicles/buick/': '/d2c-showroom-test/?path=/new/Buick.html',
+        //'/new-vehicles/gmc/': '/d2c-showroom-test/?path=/new/GMC.html',
+        //'/new-vehicles/cadillac/': '/d2c-showroom-test/?path=/new/Cadillac.html',
+        //'/new-vehicles/used/': '/d2c-showroom-test/?path=/new/used.html',
+        //'/new-vehicles/finance/': '/d2c-showroom-test/?path=/new/finance.html',
+        //'/new-vehicles/service/': '/d2c-showroom-test/?path=/new/service.html',
+        //'/new-vehicles/contact/': '/d2c-showroom-test/?path=/new/contact.html',
+        //'/new-vehicles/current-offers/': '/d2c-showroom-test/?path=/new/current-offers.html',
+    };
+
+
+    for(key in linkMap){
+        let link = document.querySelectorAll(`a[href$="/${key}/"]`);
+        link.forEach(a => {a.href = `/d2c-vdp-test/?path=${linkMap[key]}`});
+    }
+
+}
+
+function addCssStyles() {
+
+    var styles = `
+
+    #d2c_bodyContent.d2c-embedded-content{
+        font-size: 0.875rem;
+        font-family: var(--font-text);
+        font-weight: var(--font-text-weight, 400);
+    }
+
+    #d2c_bodyContent.d2c-embedded-content-mobile{
+        font-size: 1rem;
+        font-family: var(--font-text);
+        font-weight: var(--font-text-weight, 400);
+    }
+
+    #d2c_bodyContent #filterMainBox label {
+        margin-inline-start: 0.3rem;
+    }
+
+    #d2c_bodyContent a {
+        text-decoration: none;
+    }
+
+    #d2c_bodyContent .white-txt:is(.toggle-icon,.icon-button){
+        height: 1.4rem;
+        width: 1.4rem;
+    }
+    #d2c_bodyContent .glossy-curved-black .slide-arrows a{
+        background-image:url(${baseDomain}/images/arrows.png);
+    }
+
+    #d2c_bodyContent .owl-controls .owl-buttons div {
+        top: 40% !important;
+        position: absolute !important;
+        width: 37px !important;
+        height: 38px !important;
+    }
+
+    #d2c_bodyContent .owl-controls .owl-buttons .owl-prev {
+        background: url(${baseDomain}/css/tango/left.png) !important;
+    }
+
+    #d2c_bodyContent .owl-controls .owl-buttons .owl-next {
+        background: url(${baseDomain}/css/tango/right.png) !important;
+    }
+
+    #header #header-bottom .navbar #menu-top-menu>li>a {line-height:unset !important;}
+    .up_menu ul.nav > li > a {height:unset !important;min-height:18px;}
+    .up_menu ul.nav > li#MainMenu_NEW:hover > ul.sub {min-width:20rem !important;}
+    .up_menu ul.nav {background-color:transparent !important;}
+
+    .d2c-embedded-content #TradeInBarPopupContainer {
+        min-width: 700px;
+        min-height: 700px;
+        top: 3rem !important;
+    }
+
+    #d2c_bodyContent :is(h1.default span.icon, svg.fa-svg, .tradeInBarMobileButton) {
+        box-sizing: content-box;
+    }
+
+    #d2c_bodyContent .old-details td i.fa-chevron-right {
+        box-sizing:content-box;
+    }
+
+    @media only screen and (min-width: 1301px){
+        #d2c_bodyContent li.carBoxWrapper {
+            width: calc(33.33333333333333% - 15px);
+        }
+    }
+`;
+
+var styleTag = document.createElement("style");
+    styleTag.type = "text/css";
+    styleTag.innerHTML = styles;
+    document.head.appendChild(styleTag);
+}
+
+function addCssFile(url) {
+
+    var link = document.createElement("link");
+
+    link.rel = "stylesheet";
+    link.type = "text/css";
+    link.href = `${baseDomain}${url}`;
+
+    document.head.appendChild(link);
+
+
+}
+
+
+function ajaxPreset() {
+
+    let dataStore = document.getElementById('d2cDataStore').dataset;
+
+    $.ajaxPrefilter(function( options, originalOptions, jqXHR ) {
+        if (options.url.match(/^\/\w/i) != null){
+            options.url = baseDomain + options.url;
+        }
+
+        if(dataStore.ismobile === '1' && options.type == 'GET')
+            options.data += `&isMobile=1`;
+    });
+    $( document ).on( "ajaxSuccess", function( event, xhr, settings ) {
+
+        if ( settings.url.includes('getPopupContent')) {
+            let popup_match = settings.url.match(/&id=(\w*)&/);
+            if(popup_match[1]){
+                document.querySelectorAll(`[data-lazyloadid="${popup_match[1]}"] img`).forEach(img => {
+
+                    if(img.dataset.src || false)
+                        img.dataset.src = baseDomain + img.dataset.src;
+                    else
+                        img.src = baseDomain + img.src
+                });
+            }
+
+            //console.log("ajaxSuccess:", event, xhr, settings);
+        }
+    } );
+    $.ajaxSetup({
+        beforeSend: function(jqXHR, settings) {
+
+            console.log('AJAX beforeSend OPTINS: ',jqXHR,settings);
+
+            if (settings.url.match(/^\/\w/i) != null){
+                settings.url = baseDomain + settings.url;
+            }
+
+        }
+    });
+}
+
+ajaxPreset();
+    setBodyClass();
+
+    // Add CSS files
+    addCssStyles();
+    addCssFile("/css/menu7.css");
+
+    handleAdjsutments();
+    handleMenu();
+    handleLinks();
+    setTimeout(() => {
+docReady();
+}, 1000);
+AJAXCODE;
+
+/*
+private $ajaxsetupcode = <<<'AJAXCODE'
+	
+$.ajaxSetup({
+    beforeSend: function(jqXHR, settings) {
+
+        console.log('AJAX beforeSend OPTINS: ',jqXHR,settings);
+
+        if (settings.url.match(/^\/\w/i) != null){
+            settings.url = baseDomain + settings.url;
+        }
+
+    }
+});
+function ajaxPreset() {
+	}
+
+    function handleMenu(){
+
+        let menu_html = document.getElementById('d2c_menuNew').children[0];
+        let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
+
+        menuNewNode.closest('.navbar').classList.add('up_menu');
+        menuNewNode.id = 'MainMenu_NEW';
+        menuNewNode.appendChild(menu_html);
+
+
+    }
+    function handleLinks(){
+
+        const linkMap = {
+            'new-vehicles': '/new/new.html',
+            'used-vehicles': '/used/search.html',
+            'vehicules-neufs': '/neufs/nouveau.html',
+            'vehicules-doccasion': '/occasion/recherche.html',
+            //'/new-vehicles/chevrolet/': '/d2c-showroom-test/?path=/new/Chevrolet.html',
+            //'/new-vehicles/buick/': '/d2c-showroom-test/?path=/new/Buick.html',
+            //'/new-vehicles/gmc/': '/d2c-showroom-test/?path=/new/GMC.html',
+            //'/new-vehicles/cadillac/': '/d2c-showroom-test/?path=/new/Cadillac.html',
+            //'/new-vehicles/used/': '/d2c-showroom-test/?path=/new/used.html',
+            //'/new-vehicles/finance/': '/d2c-showroom-test/?path=/new/finance.html',
+            //'/new-vehicles/service/': '/d2c-showroom-test/?path=/new/service.html',
+            //'/new-vehicles/contact/': '/d2c-showroom-test/?path=/new/contact.html',
+            //'/new-vehicles/current-offers/': '/d2c-showroom-test/?path=/new/current-offers.html',
+        };
+
+
+        for(key in linkMap){
+            let link = document.querySelectorAll(`a[href$='/${key}/']`);
+            link.forEach(a => {a.href = `/d2c-vdp-test/?path=${linkMap[key]}`});
+        }
+
+    }
+    function addCssFile(url) {
+
+        var link = document.createElement('link');
+
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = `${baseDomain}${url}`;
+
+        document.head.appendChild(link);
+    }
+    //ajaxPreset();
+    addCssFile('/css/menu7.css');
+
+
+    handleMenu();
+    handleLinks();
+	setTimeout(() => {
+        if(typeof docReadyArr === 'undefined') return;
+		//ajaxPreset();
+		docReadyArr.forEach(fn => fn());
+	}, 1000);
+AJAXCODE;
+
+*/
+/*
+private $ajaxsetupcode = "
+	        function ajaxSetup() {
+		        $.ajaxPrefilter(function( options, originalOptions, jqXHR ) {
+			        if (options.url.match(/^\/\w/i) != null){
+				        options.url = 'https://oem-gmc-demo.d2cmedia.ca' + options.url;
+			        }
+		        });
+	        }
+
+            function handleMenu(){
+
+				let menu_html = document.getElementById('d2c_menuNew').children[0];
+				let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
+
+				menuNewNode.closest('.navbar').classList.add('up_menu');
+				menuNewNode.id = 'MainMenu_NEW';
+				menuNewNode.appendChild(menu_html);
+
+
+			}
+
+			function handleLinks(){
+
+				const linkMap = {
+					'new-vehicles': '/new/new.html',
+					'used-vehicles': '/used/search.html',
+					'vehicules-neufs': '/neufs/nouveau.html',
+					'vehicules-doccasion': '/occasion/recherche.html',
+					//'/new-vehicles/chevrolet/': '/d2c-showroom-test/?path=/new/Chevrolet.html',
+					//'/new-vehicles/buick/': '/d2c-showroom-test/?path=/new/Buick.html',
+					//'/new-vehicles/gmc/': '/d2c-showroom-test/?path=/new/GMC.html',
+					//'/new-vehicles/cadillac/': '/d2c-showroom-test/?path=/new/Cadillac.html',
+					//'/new-vehicles/used/': '/d2c-showroom-test/?path=/new/used.html',
+					//'/new-vehicles/finance/': '/d2c-showroom-test/?path=/new/finance.html',
+					//'/new-vehicles/service/': '/d2c-showroom-test/?path=/new/service.html',
+					//'/new-vehicles/contact/': '/d2c-showroom-test/?path=/new/contact.html',
+					//'/new-vehicles/current-offers/': '/d2c-showroom-test/?path=/new/current-offers.html',
+				};
+
+
+				for(key in linkMap){
+					let link = document.querySelectorAll(`a[href$='/${key}/']`);
+					link.forEach(a => {a.href = `/d2c-vdp-test/?path=${linkMap[key]}`});
+				}
+
+			}
+
+			function addCssFile(url) {
+
+				var link = document.createElement('link');
+
+				link.rel = 'stylesheet';
+				link.type = 'text/css';
+				link.href = `${baseDomain}${url}`;
+
+				document.head.appendChild(link);
+			}
+	
+
+               // Add CSS files
+				addCssFile('/css/menu-base.css');
+				addCssFile('/css/menu7.css');
+
+				ajaxSetup();
+
+				handleMenu();
+				handleLinks();
+
+				setTimeout(() => {ajaxSetup();docReady();}, 1000);
+";
+
+
+*/
+
+
+
+
 
     /**
      * Constructor for the D2C_Embedder class.
@@ -61,10 +601,12 @@ setTimeout(() => {
     public function __construct() {
         add_action('wp', array($this, 'fetch_data'));
 
-        add_filter('body_class',array($this,'add_custom_body_classes'));
+        //add_filter('body_class',array($this,'add_custom_body_classes'));
         add_action('wp_head', array($this,'add_custom_meta_tags'));
         add_action('wp_footer', array($this,'add_custom_js_rl_tags'));
         add_filter('document_title_parts', array($this, 'modify_page_title'), 10);
+        //add_filter('wp_nav_menu_objects', array($this,'remove_specific_menu_item'), 1000, 2);
+        //add_action('wp_enqueue_scripts',array($this,'remove_unwanted_scripts'),500);
         add_shortcode('d2cembedder', array($this, 'handle_shortcode'));
 }
 
@@ -81,10 +623,11 @@ setTimeout(() => {
      * It then marks that the data has been fetched successfully.
      */
     public function fetch_data() {
-        if (!is_page($this->pageslug)) return; // should match the expected page slug
+        //if (!is_page($this->pageslug)) return; // should match the expected page slug
        
         if($this->data_fetched) return; //already fetched data 
-        
+        //$is_mobile = $this->is_mobile_by_screen_size();//         wp_is_mobile();
+        $is_mobile =  wp_is_mobile();
         $current_language = $this->get_page_language();
         $processUrl = $this->url . '/embeder/process';
         if ($current_language == 'fr'){
@@ -92,6 +635,9 @@ setTimeout(() => {
             $processUrl = $this->url . '/embeder/process/fr';
 
         } 
+        if ($is_mobile){
+            $processUrl = $processUrl . '/m';
+        }
 
         $this->path = isset($_GET['path']) ? $_GET['path'] : $this->defaultpage;
     
@@ -134,6 +680,7 @@ setTimeout(() => {
         $this->js_inline = base64_decode($responseData['js_inline']);
         $this->js_rl = base64_decode($responseData['js_rl']);
         $this->html = base64_decode($responseData['html']);
+        $this->menu_new = base64_decode($responseData['menu_new']);
         $this->data_fetched = true;
         return true;
     }
@@ -247,7 +794,20 @@ setTimeout(() => {
 	return $isLocalHost || $isLocalPort;
     }
 	
-    
+    private function is_mobile_by_screen_size() {
+        $width = $_SERVER['HTTP_SCREEN_WIDTH'];
+        $height = $_SERVER['HTTP_SCREEN_HEIGHT'];
+        
+        // Define a threshold for screen width to classify as mobile
+        $mobileScreenWidthThreshold = 768; // Adjust as needed
+        
+        // Check if either width or height is less than the threshold
+        if ($width < $mobileScreenWidthThreshold || $height < $mobileScreenWidthThreshold) {
+            return true;
+        } else {
+            return false;
+        }
+    }
     /**
      * adds the custom body classes
     */
@@ -274,10 +834,18 @@ setTimeout(() => {
     */
     public function add_custom_js_rl_tags() {
         $this->fetch_data();
+        echo  '<script id="d2c_menu">console.log("d2c testing....");</script>' . $this->menu_new ;
+        echo '<script id="d2c_js_all" type="text/javascript"> const baseDomain = "https://oem-gmc-demo.d2cmedia.ca";' . '</script>';
+        //echo '<script id="d2c_js_all" type="text/javascript">' .  $this->ajaxsetupcode . '</script>';
         if (is_page($this->pageslug) && $this->data_fetched){
             echo '<script id="d2c_js_inline" type="text/javascript">' . $this->js_inline . '</script>';
-            echo '<script id="d2c_js_rl" type="text/javascript">' . $this->js_rl . $this->ajaxsetupcode . '</script>';
+            echo '<script id="d2c_js_rl" type="text/javascript">' . $this->js_rl   .  $this->ajaxsetupcode .   '</script>';
         }
+        else{
+            echo '<script id="d2c_js_oth" type="text/javascript">'  .  $this->otherPagecode .   '</script>';
+
+        }
+
     }
 
     /**
@@ -291,6 +859,19 @@ setTimeout(() => {
         }
         return $title;
     }
+
+
+    public function remove_specific_menu_item($items, $args) {
+        // Loop through the menu items and remove the item with the title 'The Item Title'
+        var_dump($items);
+        foreach ($items as $key => $item) {
+            if ('New' == $item->title) {
+                unset($items[$key]);
+            }
+        }
+        return $items;
+    }
+    
 
     /**
      * Handles the shortcode functionality for the D2C_Embedder class.
