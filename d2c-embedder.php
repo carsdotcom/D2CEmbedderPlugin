@@ -9,7 +9,7 @@
  * Plugin Name:   D2C Embedder 
  * Plugin URI:    https://www.d2cmedia.ca
  * Description:   D2C Media SRP/VDP Embedder plugin. 
- * Version:       1.0.3
+ * Version:       1.0.4
  * Author:        D2C Media
  * Author URI:    https://www.d2cmedia.ca
  */
@@ -33,7 +33,7 @@ class D2C_Embedder {
     private $js_rl;
     private $html;
     private $menu_new;
-    private $url="https://oem-gmc-demo.d2cmedia.ca";
+    private $url="";
     private $defaultpage="/new/new.html";
     private $data_fetched = false;
     private $is_mobile = false;
@@ -43,30 +43,9 @@ class D2C_Embedder {
     //TODO may move this to settings page 
 
     private $path;
-/*    
-    private $ajaxsetupcode = "
-
-$.ajaxPrefilter(function( options, originalOptions, jqXHR ) {
-        if (options.url.match(/^\/\w/i) != null){
-            options.url = 'https://oem-gmc-demo.d2cmedia.ca' + options.url;
-        }
-    });
-$.ajaxSetup({
-    beforeSend: function(jqXHR, settings) {
-        console.log('AJAX beforeSend OPTINS: ',jqXHR,settings);
-        if (settings.url.match(/^\/\w/i) != null){
-            settings.url = 'https://oem-gmc-demo.d2cmedia.ca' + settings.url;
-        }
-    }
-});
-
-setTimeout(() => {
-
-    docReady();
-}, 1000);";
-*/
 
 private $otherPagecode = <<<'OTHERPAGE'
+    const baseDomain = document.getElementById("d2cDataStore").dataset.baseurl;
     function addCssStyles() {
 
         var styles = `
@@ -173,13 +152,17 @@ private $otherPagecode = <<<'OTHERPAGE'
     }
     function handleMenu(){
 
-        let menu_html = document.getElementById('d2c_menuNew').children[0];
+        let menu_html = document.getElementById('d2c_menuNew')?.children[0] || false;
+        if(!menu_html) return;
+    
         menu_html.querySelector('li[data-id="NEW_BUILDPRICE"]').remove();
-        //let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
-        let menuNewNode = document.querySelector('#menu-main-menu-1 .newVehicles');
+        let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
+        //let menuNewNode = document.querySelector('#menu-main-menu-1 .newVehicles');
+
         menuNewNode.closest('.navbar').classList.add('up_menu');
         menuNewNode.id = 'MainMenu_NEW';
         menuNewNode.appendChild(menu_html);
+        
         menuNewNode.querySelectorAll('img[data-src]').forEach(img => img.src = img.dataset.src);
 
     }
@@ -218,6 +201,7 @@ private $otherPagecode = <<<'OTHERPAGE'
 OTHERPAGE;
 
 private $ajaxsetupcode = <<<'AJAXCODE'
+const baseDomain = document.getElementById("d2cDataStore").dataset.baseurl;
 function setBodyClass() {
 
     let bodyClass = document.getElementById('d2cDataStore').dataset.bodyclass.trim().split(' ');
@@ -245,13 +229,12 @@ function handleAdjsutments(){
 }
 function handleMenu(){
 
-    let menu_html = document.getElementById('d2c_menuNew').children[0] || false;
-
+    let menu_html = document.getElementById('d2c_menuNew')?.children[0] || false;
     if(!menu_html) return;
 
     menu_html.querySelector('li[data-id="NEW_BUILDPRICE"]').remove();
-    //let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
-    let menuNewNode = document.querySelector('#menu-main-menu-1 .newVehicles');
+    let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
+    //let menuNewNode = document.querySelector('#menu-main-menu-1 .newVehicles');
 
     menuNewNode.closest('.navbar').classList.add('up_menu');
     menuNewNode.id = 'MainMenu_NEW';
@@ -438,179 +421,86 @@ docReady();
 }, 1000);
 AJAXCODE;
 
-/*
-private $ajaxsetupcode = <<<'AJAXCODE'
-	
-$.ajaxSetup({
-    beforeSend: function(jqXHR, settings) {
-
-        console.log('AJAX beforeSend OPTINS: ',jqXHR,settings);
-
-        if (settings.url.match(/^\/\w/i) != null){
-            settings.url = baseDomain + settings.url;
-        }
-
-    }
-});
-function ajaxPreset() {
-	}
-
-    function handleMenu(){
-
-        let menu_html = document.getElementById('d2c_menuNew').children[0];
-        let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
-
-        menuNewNode.closest('.navbar').classList.add('up_menu');
-        menuNewNode.id = 'MainMenu_NEW';
-        menuNewNode.appendChild(menu_html);
-
-
-    }
-    function handleLinks(){
-
-        const linkMap = {
-            'new-vehicles': '/new/new.html',
-            'used-vehicles': '/used/search.html',
-            'vehicules-neufs': '/neufs/nouveau.html',
-            'vehicules-doccasion': '/occasion/recherche.html',
-            //'/new-vehicles/chevrolet/': '/d2c-showroom-test/?path=/new/Chevrolet.html',
-            //'/new-vehicles/buick/': '/d2c-showroom-test/?path=/new/Buick.html',
-            //'/new-vehicles/gmc/': '/d2c-showroom-test/?path=/new/GMC.html',
-            //'/new-vehicles/cadillac/': '/d2c-showroom-test/?path=/new/Cadillac.html',
-            //'/new-vehicles/used/': '/d2c-showroom-test/?path=/new/used.html',
-            //'/new-vehicles/finance/': '/d2c-showroom-test/?path=/new/finance.html',
-            //'/new-vehicles/service/': '/d2c-showroom-test/?path=/new/service.html',
-            //'/new-vehicles/contact/': '/d2c-showroom-test/?path=/new/contact.html',
-            //'/new-vehicles/current-offers/': '/d2c-showroom-test/?path=/new/current-offers.html',
-        };
-
-
-        for(key in linkMap){
-            let link = document.querySelectorAll(`a[href$='/${key}/']`);
-            link.forEach(a => {a.href = `/d2c-vdp-test/?path=${linkMap[key]}`});
-        }
-
-    }
-    function addCssFile(url) {
-
-        var link = document.createElement('link');
-
-        link.rel = 'stylesheet';
-        link.type = 'text/css';
-        link.href = `${baseDomain}${url}`;
-
-        document.head.appendChild(link);
-    }
-    //ajaxPreset();
-    addCssFile('/css/menu7.css');
-
-
-    handleMenu();
-    handleLinks();
-	setTimeout(() => {
-        if(typeof docReadyArr === 'undefined') return;
-		//ajaxPreset();
-		docReadyArr.forEach(fn => fn());
-	}, 1000);
-AJAXCODE;
-
-*/
-/*
-private $ajaxsetupcode = "
-	        function ajaxSetup() {
-		        $.ajaxPrefilter(function( options, originalOptions, jqXHR ) {
-			        if (options.url.match(/^\/\w/i) != null){
-				        options.url = 'https://oem-gmc-demo.d2cmedia.ca' + options.url;
-			        }
-		        });
-	        }
-
-            function handleMenu(){
-
-				let menu_html = document.getElementById('d2c_menuNew').children[0];
-				let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
-
-				menuNewNode.closest('.navbar').classList.add('up_menu');
-				menuNewNode.id = 'MainMenu_NEW';
-				menuNewNode.appendChild(menu_html);
-
-
-			}
-
-			function handleLinks(){
-
-				const linkMap = {
-					'new-vehicles': '/new/new.html',
-					'used-vehicles': '/used/search.html',
-					'vehicules-neufs': '/neufs/nouveau.html',
-					'vehicules-doccasion': '/occasion/recherche.html',
-					//'/new-vehicles/chevrolet/': '/d2c-showroom-test/?path=/new/Chevrolet.html',
-					//'/new-vehicles/buick/': '/d2c-showroom-test/?path=/new/Buick.html',
-					//'/new-vehicles/gmc/': '/d2c-showroom-test/?path=/new/GMC.html',
-					//'/new-vehicles/cadillac/': '/d2c-showroom-test/?path=/new/Cadillac.html',
-					//'/new-vehicles/used/': '/d2c-showroom-test/?path=/new/used.html',
-					//'/new-vehicles/finance/': '/d2c-showroom-test/?path=/new/finance.html',
-					//'/new-vehicles/service/': '/d2c-showroom-test/?path=/new/service.html',
-					//'/new-vehicles/contact/': '/d2c-showroom-test/?path=/new/contact.html',
-					//'/new-vehicles/current-offers/': '/d2c-showroom-test/?path=/new/current-offers.html',
-				};
-
-
-				for(key in linkMap){
-					let link = document.querySelectorAll(`a[href$='/${key}/']`);
-					link.forEach(a => {a.href = `/d2c-vdp-test/?path=${linkMap[key]}`});
-				}
-
-			}
-
-			function addCssFile(url) {
-
-				var link = document.createElement('link');
-
-				link.rel = 'stylesheet';
-				link.type = 'text/css';
-				link.href = `${baseDomain}${url}`;
-
-				document.head.appendChild(link);
-			}
-	
-
-               // Add CSS files
-				addCssFile('/css/menu-base.css');
-				addCssFile('/css/menu7.css');
-
-				ajaxSetup();
-
-				handleMenu();
-				handleLinks();
-
-				setTimeout(() => {ajaxSetup();docReady();}, 1000);
-";
-
-
-*/
-
-
-
-
 
     /**
      * Constructor for the D2C_Embedder class.
      * All actions, filters and short_code are registered 
      */
     public function __construct() {
+        add_action('admin_menu', array($this, 'add_admin_menu'));
+        add_action('admin_init', array($this, 'initialize_plugin_settings'));
+        register_deactivation_hook(__FILE__, array($this, 'cleanup_on_deactivation'));
+        register_activation_hook(__FILE__, array($this, 'set_default_options'));
+
+        add_filter('pre_update_option_d2c_api_url', array($this, 'sanitize_api_url'), 10, 2);
+        add_filter("plugin_action_links", array($this, 'add_settings_link'),10,2);
         add_action('wp', array($this, 'fetch_data'));
 
-        //add_filter('body_class',array($this,'add_custom_body_classes'));
         add_action('wp_head', array($this,'add_custom_meta_tags'));
         add_action('wp_footer', array($this,'add_custom_js_rl_tags'));
         add_filter('document_title_parts', array($this, 'modify_page_title'), 10);
         //add_filter('wp_nav_menu_objects', array($this,'remove_specific_menu_item'), 1000, 2);
-        //add_action('wp_enqueue_scripts',array($this,'remove_unwanted_scripts'),500);
         add_shortcode('d2cembedder', array($this, 'handle_shortcode'));
 }
 
+    public function add_admin_menu() {
+        add_options_page('D2C Embedder Integration', 'D2C Embedder', 'manage_options', 'd2cembedder', array($this, 'display_settings_page'));
+    }
 
+    // Display settings page
+    public function display_settings_page() {
+        $plugin_basename = ( __FILE__  .  '.php' );
+        ?>
+        <div class="wrap">
+            <h2>D2C Embedder Integration Settings</h2>
+            <form method="post" action="options.php">
+                <?php settings_fields('d2c-api-options'); ?>
+                <?php do_settings_sections('d2cembedder'); ?>
+                <table class="form-table">
+                    <tr valign="top">
+                    <th scope="row">D2C Embedder API URL:</th>
+                    <td><input type="text" style="width:50%" name="d2c_api_url" value="<?php echo esc_attr(get_option('d2c_api_url')); ?>" /></td>
+                    </tr>
+                </table>
+                <?php submit_button(); ?>
+            </form>
+        </div>
+        <?php
+        // Check if the API URL is set and display warning if not
+        if (!get_option('d2c_api_url')) {
+            echo '<div id="message" style="color:red"  class="notice notice-error"><p><strong>Warning:</strong> API URL is not set.</p></div>';
+        }
+    }
+    public function initialize_plugin_settings() {
+        register_setting('d2c-api-options', 'd2c_api_url');
+    }
+
+    // Sanitize API URL before saving
+    public function sanitize_api_url($new_value, $old_value) {
+        // Trim the trailing slash if it exists
+        return rtrim($new_value, '/');
+    }
+
+    // Set default options on activation
+    public function set_default_options() {
+        if (get_option('d2c_api_url') === false) {
+            update_option('d2c_api_url', 'https://oem-gmc-demo.d2cmedia.ca');
+        }
+    }
+
+
+    // Cleanup on plugin deactivation
+    public function cleanup_on_deactivation() {
+        delete_option('d2c_api_url'); // Clean up the option stored in the database
+    }
+
+    // Add settings link to the plugins page
+    public function add_settings_link($links, $file) {
+        if ( $file == plugin_basename( dirname( __FILE__ ).'/d2c-embedder.php' ) ) {
+            $links[] = '<a href="' . admin_url( 'options-general.php?page=d2cembedder' ) . '">'.__( 'Settings' ).'</a>';
+        }
+        return $links;
+    }
     /**
      * Fetches data from a specified API endpoint based on the current page and language.
      *
@@ -626,6 +516,11 @@ private $ajaxsetupcode = "
         //if (!is_page($this->pageslug)) return; // should match the expected page slug
        
         if($this->data_fetched) return; //already fetched data 
+        if(!get_option('d2c_api_url')) return; //API URL not set
+
+        $this->url = get_option('d2c_api_url');
+        
+
         //$is_mobile = $this->is_mobile_by_screen_size();//         wp_is_mobile();
         $is_mobile =  wp_is_mobile();
         $current_language = $this->get_page_language();
@@ -824,7 +719,8 @@ private $ajaxsetupcode = "
      * adds the custom meta tags
     */
     public function add_custom_meta_tags() {
-        if (is_page($this->pageslug) && $this->data_fetched){
+        //if (is_page($this->pageslug) && $this->data_fetched){
+        if (is_singular() && has_shortcode(get_post()->post_content, 'd2cembedder') && $this->data_fetched){
             echo $this->metas;
         }
     }
@@ -834,15 +730,17 @@ private $ajaxsetupcode = "
     */
     public function add_custom_js_rl_tags() {
         $this->fetch_data();
-        echo  '<script id="d2c_menu">console.log("d2c testing....");</script>' . $this->menu_new ;
-        echo '<script id="d2c_js_all" type="text/javascript"> const baseDomain = "https://oem-gmc-demo.d2cmedia.ca";' . '</script>';
-        //echo '<script id="d2c_js_all" type="text/javascript">' .  $this->ajaxsetupcode . '</script>';
-        if (is_page($this->pageslug) && $this->data_fetched){
+        echo  $this->menu_new;
+        if (is_singular() && has_shortcode(get_post()->post_content, 'd2cembedder') && $this->data_fetched){
             echo '<script id="d2c_js_inline" type="text/javascript">' . $this->js_inline . '</script>';
             echo '<script id="d2c_js_rl" type="text/javascript">' . $this->js_rl   .  $this->ajaxsetupcode .   '</script>';
         }
         else{
-            echo '<script id="d2c_js_oth" type="text/javascript">'  .  $this->otherPagecode .   '</script>';
+            if ($this->menu_new === null || trim($this->menu_new) === "") {
+                echo "<!--D2C menu empty-->";
+            } else {
+                echo '<script id="d2c_js_oth" type="text/javascript">'  .  $this->otherPagecode .   '</script>';
+            }
 
         }
 
@@ -860,18 +758,6 @@ private $ajaxsetupcode = "
         return $title;
     }
 
-
-    public function remove_specific_menu_item($items, $args) {
-        // Loop through the menu items and remove the item with the title 'The Item Title'
-        var_dump($items);
-        foreach ($items as $key => $item) {
-            if ('New' == $item->title) {
-                unset($items[$key]);
-            }
-        }
-        return $items;
-    }
-    
 
     /**
      * Handles the shortcode functionality for the D2C_Embedder class.
