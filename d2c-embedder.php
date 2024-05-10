@@ -9,7 +9,7 @@
  * Plugin Name:   D2C Embedder 
  * Plugin URI:    https://www.d2cmedia.ca
  * Description:   D2C Media SRP/VDP Embedder plugin. 
- * Version:       1.0.4
+ * Version:       1.0.5
  * Author:        D2C Media
  * Author URI:    https://www.d2cmedia.ca
  */
@@ -127,9 +127,18 @@ private $otherPagecode = <<<'OTHERPAGE'
     function handleAdjsutments(){
 
 
+        //if(window.gUsedSrpAppz || false){
+        //    gUsedSrpAppz.filterInterface.getFilterController().init();
+        //}
+        let isMobile = (document.getElementById('d2cDataStore').dataset.ismobile || 0) === '1';
+
         if(window.gUsedSrpAppz || false){
-            gUsedSrpAppz.filterInterface.getFilterController().init();
+            let filterController = window.gUsedSrpAppz.filterInterface.getFilterController();
+            filterController._isMobile = isMobile;
+            filterController.initActions()
         }
+
+
 
         document.getElementById('d2c_bodyContent').hidden = false;
 
@@ -156,8 +165,8 @@ private $otherPagecode = <<<'OTHERPAGE'
         if(!menu_html) return;
     
         menu_html.querySelector('li[data-id="NEW_BUILDPRICE"]').remove();
-        let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
-        //let menuNewNode = document.querySelector('#menu-main-menu-1 .newVehicles');
+        //let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
+        let menuNewNode = document.querySelector('#menu-main-menu .newVehicles');
 
         menuNewNode.closest('.navbar').classList.add('up_menu');
         menuNewNode.id = 'MainMenu_NEW';
@@ -213,10 +222,16 @@ function setBodyClass() {
 function handleAdjsutments(){
 
 
-    if(window.gUsedSrpAppz || false){
-        gUsedSrpAppz.filterInterface.getFilterController().init();
-    }
+    //if(window.gUsedSrpAppz || false){
+    //    gUsedSrpAppz.filterInterface.getFilterController().init();
+    //}
+    let isMobile = (document.getElementById('d2cDataStore').dataset.ismobile || 0) === '1';
 
+    if(window.gUsedSrpAppz || false){
+        let filterController = window.gUsedSrpAppz.filterInterface.getFilterController();
+        filterController._isMobile = isMobile;
+        filterController.initActions()
+    }
     document.getElementById('d2c_bodyContent').hidden = false;
 
     let mainTag = document.getElementsByTagName('main')[0] || false;
