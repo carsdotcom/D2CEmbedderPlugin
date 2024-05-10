@@ -248,8 +248,8 @@ function handleMenu(){
     if(!menu_html) return;
 
     menu_html.querySelector('li[data-id="NEW_BUILDPRICE"]').remove();
-    let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
-    //let menuNewNode = document.querySelector('#menu-main-menu-1 .newVehicles');
+    //let menuNewNode = document.querySelector('#menu-top-menu .new-dropdown');
+    let menuNewNode = document.querySelector('#menu-main-menu .newVehicles');
 
     menuNewNode.closest('.navbar').classList.add('up_menu');
     menuNewNode.id = 'MainMenu_NEW';
