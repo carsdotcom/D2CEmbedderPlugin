@@ -9,7 +9,7 @@
  * Plugin Name:   D2C Embedder 
  * Plugin URI:    https://www.d2cmedia.ca
  * Description:   D2C Media SRP/VDP Embedder plugin. 
- * Version:       1.0.5
+ * Version:       1.2.1
  * Author:        D2C Media
  * Author URI:    https://www.d2cmedia.ca
  */
@@ -615,17 +615,15 @@ AJAXCODE;
             $query_params = [];
             parse_str(parse_url($current_url, PHP_URL_QUERY), $query_params);
             
-            // Check if the 'path' query parameter exists and contains '/neufs/'
-            $path_contains_neufs = false;
-            if (isset($query_params['path']) && strpos($query_params['path'], '/neufs/') !== false) {
-                $path_contains_neufs = true;
-            }
+            // Check if the 'path' query parameter exists and contains '/neufs/' or '/occasion/' or '/demonstrateurs/'
+            $path_contains_french = isset($query_params['path']) && 
+                (strpos($query_params['path'], '/neufs/') !== false || strpos($query_params['path'], '/occasion/') !== false || strpos($query_params['path'], '/demonstrateurs/') !== false);
      
             // Check if the URL contains '/fr/'
             $url_contains_fr = strpos($current_url, '/fr/') !== false;
     
-            // page language is fr if either the slug ends with '-fr' or the URL contains '/fr/'
-            $current_language =  ($slug_ends_with_fr || $url_contains_fr || $path_contains_neufs) ? 'fr' :'en';
+            // page language is fr if either the slug ends with '-fr' or the URL contains '/fr/' or french keywords 
+            $current_language =  ($slug_ends_with_fr || $url_contains_fr || $path_contains_french) ? 'fr' :'en';
         }
         return $current_language;
         
